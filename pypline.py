@@ -1,4 +1,4 @@
-from multiprocessing import Queue, Process
+from multiprocessing import Queue, Process, Pool
 
 class Pypline():
     def __init__(self, config):
@@ -22,6 +22,15 @@ class Pypline():
             else:
                 self.otuputs.append((otuput['if'], otuput['otuput']))
 
+    def start(self):
+        '''
+        call all the methods required to propperly initiate pipeline
+        '''
+        self.__init_queues()
+        self._start_inputs_processes()
+        self._start_filters_pool()
+        self._start_output_manager_process()
+
     def _init_queues(self):
         '''
         Init queues from inputs to filters and from filters to outputs
@@ -39,9 +48,33 @@ class Pypline():
         self.input_processes = []
         for input in self.inputs:
             p = Process(target=input.run,
-                        kwargs={"queue" = self._input_to_filters_queue})
+                        kwargs={"queue": self._input_to_filters_queue})
             self.input_processes.append(p)
             p.start()
+
+    def _generator_for_filter(self):
+        while 1:
+            try:
+                event = self._input_to_filters_queue.get()
+            except:
+                pass
+            else:
+                yield event
+
+
+    def _start_filters_pool(self):
+        def _process(generator):
+            pool = Pool(5)
+            pool.imap_unordered(self.filtering_function, generator)
+        p = Process(target=_process)
+        p.start()
+
+    def _start_output_manager_process(self):
+        '''
+        Runs a process for outputs_manager
+        '''
+        p = Process(target=self._outputs_manager)
+        p.start()
 
     def _outputs_manager(self):
         '''
@@ -50,15 +83,21 @@ class Pypline():
         and give it to output processes
         It also handles conditional outputs
         '''
-        for condition, output in self.outputs:
-            if condition(event):
-                while 1:
-                    try:
-                        output.push(event)
-                    except:
-                        print("EXCEPTION OCCURED!")
-                    else:
-                        break
+        while 1:
+            try:
+                event = self._filters_to_output_queue.get()
+            except:
+                pass
+            else:
+                for condition, output in self.outputs:
+                    if condition(event):
+                        while 1:
+                            try:
+                                output.push(event)
+                            except:
+                                print("EXCEPTION OCCURED!")
+                            else:
+                                break
 
     def _always_true(self, event):
         '''
@@ -77,5 +116,9 @@ class Pypline():
             except:
                 pass
                 #TODO: Some logging here!
-        return event
+        self._filters_to_output_queue.put(event)
 
+if __name__ == '__main__':
+    import config
+    p = Pypline(config.config)
+    p.start()
