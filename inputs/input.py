@@ -1,10 +1,16 @@
-class Input():
-    def __init__(queue):
-        #TODO: set queue by set_queue method. not by __init__
+class Input(object):
+    def __init__(self):
+        pass
+
+    def set_queue(self, queue):
         self.queue = queue
 
-    def start():
+    def start(self):
         while 1:
             event = self.generate()
             if event:
-                queue.put(event)
+                try:
+                    self.queue.put(event, False)
+                    #logging.info("Event Emitted: {0}".format(event))
+                except:
+                    pass

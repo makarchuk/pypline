@@ -1,6 +1,7 @@
 import random
 from input import Input
 
+
 class RandomInput(Input):
     '''
     Generates random events by given description
@@ -13,7 +14,7 @@ class RandomInput(Input):
             value_params = value
             gen_function = self.gen_func(value_type, value_params)
             self.generation_mapping[key] = gen_function
-        super(self, RandomInput).__init__()
+        super(RandomInput, self).__init__()
 
     def gen_func(self, type, options={}):
         '''

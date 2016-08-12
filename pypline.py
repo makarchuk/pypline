@@ -1,4 +1,6 @@
 from multiprocessing import Queue, Process, Pool
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class Pypline():
     def __init__(self, config):
@@ -12,32 +14,48 @@ class Pypline():
 
         for filter in config['filters']:
             if 'filter' in dir(filter):
-                self.fliters.append((self._always_true, filter))
+                self.filters.append((self._always_true, filter))
             else:
                 self.filters.append((filter['if'], filter['filter']))
         self.outputs = []
-        for otuput in config['otuputs']:
-            if 'otuput' in dir(otuput):
-                self.fliters.append((self._always_true, otuput))
+        for output in config['outputs']:
+            if 'output' in dir(output):
+                self.outputs.append((self._always_true, output))
             else:
-                self.otuputs.append((otuput['if'], otuput['otuput']))
+                self.outputs.append((output['if'], output['output']))
 
     def start(self):
         '''
         call all the methods required to propperly initiate pipeline
         '''
-        self.__init_queues()
+        self._init_queues()
         self._start_inputs_processes()
         self._start_filters_pool()
         self._start_output_manager_process()
+        self._start_outputs_processes()
 
     def _init_queues(self):
         '''
         Init queues from inputs to filters and from filters to outputs
         '''
 
-        self._input_to_filters_queue = Queue.Queue(maxsize=1000)
-        self._filters_to_output_queue = Queue.Queue(maxsize=1000)
+        self._input_to_filters_queue = Queue(maxsize=1000)
+        for input in self.inputs:
+            input.set_queue(self._input_to_filters_queue)
+        self._filters_to_output_queue = Queue(maxsize=1000)
+
+    def _start_outputs_processes(self):
+        '''
+        Start processes of each input
+        Outputs must have method "start"
+        which should generate events in a loop
+        '''
+        self.output_processes = []
+        for condition, output in self.outputs:
+            p = Process(target=output.start)
+            self.output_processes.append(p)
+            p.start()
+        logging.info ("OUTPUTS PROCESSES STARTED!")
 
     def _start_inputs_processes(self):
         '''
@@ -47,27 +65,30 @@ class Pypline():
         '''
         self.input_processes = []
         for input in self.inputs:
-            p = Process(target=input.run,
-                        kwargs={"queue": self._input_to_filters_queue})
+            p = Process(target=input.start)
             self.input_processes.append(p)
             p.start()
+        logging.info ("INPUTS PROCESSES STARTED!")
 
     def _generator_for_filter(self):
         while 1:
             try:
-                event = self._input_to_filters_queue.get()
+                event = self._input_to_filters_queue.get(False)
             except:
-                pass
+                logging.error("Exception in generator for filter")
             else:
                 yield event
 
 
     def _start_filters_pool(self):
         def _process(generator):
-            pool = Pool(5)
-            pool.imap_unordered(self.filtering_function, generator)
-        p = Process(target=_process)
+            for x in generator:
+                self.filtering_function(x)
+            #pool = Pool(5)
+            #pool.imap_unordered(self.filtering_function, generator)
+        p = Process(target=_process, args=[self._generator_for_filter()])
         p.start()
+        logging.info ("FILTERS POOL STARTED!")
 
     def _start_output_manager_process(self):
         '''
@@ -75,6 +96,7 @@ class Pypline():
         '''
         p = Process(target=self._outputs_manager)
         p.start()
+        logging.info ("OUTPUT MANAGER STARTED!")
 
     def _outputs_manager(self):
         '''
@@ -85,8 +107,9 @@ class Pypline():
         '''
         while 1:
             try:
-                event = self._filters_to_output_queue.get()
+                event = self._filters_to_output_queue.get(False)
             except:
+                #logging.info("EXCEPTION IN OUTPUT MANAGER! HOLY SHIT!")
                 pass
             else:
                 for condition, output in self.outputs:
@@ -95,7 +118,7 @@ class Pypline():
                             try:
                                 output.push(event)
                             except:
-                                print("EXCEPTION OCCURED!")
+                                logging.info("Can't push event to output")
                             else:
                                 break
 
@@ -114,9 +137,9 @@ class Pypline():
                 if condition(event):
                     event = filter(event)
             except:
-                pass
-                #TODO: Some logging here!
-        self._filters_to_output_queue.put(event)
+                logging.info("EXCEPTION IN FILTER")
+                #TODO: Improve logging
+        self._filters_to_output_queue.put(event, False)
 
 if __name__ == '__main__':
     import config
