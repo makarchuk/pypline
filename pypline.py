@@ -70,24 +70,26 @@ class Pypline():
             p.start()
         logging.info ("INPUTS PROCESSES STARTED!")
 
-    def _generator_for_filter(self):
-        while 1:
-            try:
-                event = self._input_to_filters_queue.get(False)
-            except:
-                logging.error("Exception in generator for filter")
-            else:
-                yield event
-
-
     def _start_filters_pool(self):
-        def _process(generator):
-            for x in generator:
-                self.filtering_function(x)
-            #pool = Pool(5)
-            #pool.imap_unordered(self.filtering_function, generator)
-        p = Process(target=_process, args=[self._generator_for_filter()])
-        p.start()
+        '''
+        Creates number of processes.
+        Each process runs throug queue and apply filtering function to events
+        '''
+        def _process():
+            while 1:
+                try:
+                    event = self._input_to_filters_queue.get(False)
+                except:
+                    pass
+                else:
+                    self.filtering_function(event)
+
+        self.filter_processes = []
+        for x in range(10):
+            p = Process(target=_process)
+            self.filter_processes.append(p)
+            p.start()
+
         logging.info ("FILTERS POOL STARTED!")
 
     def _start_output_manager_process(self):
