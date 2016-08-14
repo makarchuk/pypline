@@ -1,4 +1,5 @@
-class RemoveFilter():
+from filter import Filter
+class RemoveFilter(Filter):
     '''
     Simple filter for removing fields from event
     '''

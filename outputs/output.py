@@ -11,6 +11,8 @@ class Output(object):
             except:
                 logging.warn("Can't push to ouptut queue. It's probably full")
 
+    def set_exit_event(self, event):
+        self.exit_event = event
 
     def start(self):
         while 1:

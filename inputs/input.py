@@ -5,6 +5,9 @@ class Input(object):
     def set_queue(self, queue):
         self.queue = queue
 
+    def set_exit_event(self, event):
+        self.exit_event = event
+
     def start(self):
         while 1:
             event = self.generate()

@@ -1,4 +1,5 @@
-from multiprocessing import Queue, Process, Pool
+from multiprocessing import Queue, Process
+import multiprocessing
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -7,6 +8,7 @@ class Pypline():
         self.inputs = config['inputs']
         self.filters = []
         self._init_queues()
+        self.exiting_event = multiprocessing.Event()
         # TODO: CONDITIONS TREE
         # 'if' :lambda
         # 'filter': filter
@@ -28,21 +30,55 @@ class Pypline():
         '''
         call all the methods required to propperly initiate pipeline
         '''
-        self._init_queues()
+        self._init_queues_and_events()
         self._start_inputs_processes()
         self._start_filters_pool()
         self._start_output_manager_process()
         self._start_outputs_processes()
 
-    def _init_queues(self):
+
+    def soft_exit(self):
+        print "SOFT_EXIT!"
+        pass
+
+    def hard_exit(self):
+        print "HARD EXIT!"
+        pass
+
+
+    def _wait_for_signals(self):
+        '''
+        Wait for sigterm or sigkill or for KeyboardInterrupt exception
+        to properly kill al the processes
+        '''
+        import signal
+
+        signal.signal(signal.SIGTERM, soft_exit)
+        signal.signal(signal.SIGKILL, hard_exit)
+        try:
+            while 1:
+                pass
+        except KeyboardInterrupt:
+            soft_exit()
+
+
+
+
+    def _init_queues_and_events(self):
         '''
         Init queues from inputs to filters and from filters to outputs
         '''
-
         self._input_to_filters_queue = Queue(maxsize=1000)
+        self._filters_to_output_queue = Queue(maxsize=1000)
+
         for input in self.inputs:
             input.set_queue(self._input_to_filters_queue)
-        self._filters_to_output_queue = Queue(maxsize=1000)
+            input.set_exit_event = self.exiting_event
+        for condition, filter in self.filters:
+            filter.set_exit_event = self.exiting_event
+        for condition, output in self.outputs:
+            output.set_exit_event = self.exiting_event
+
 
     def _start_outputs_processes(self):
         '''
