@@ -1,4 +1,5 @@
 from output import Output
+import logging
 
 class PrintOutput(Output):
     '''
@@ -9,5 +10,5 @@ class PrintOutput(Output):
         super(PrintOutput, self).__init__()
 
     def output(self, event):
-        print ("{0}: {1}".format(self.counter, event))
+        logging.info("OUTPUT #{0}: {1}".format(self.counter, event))
         self.counter += 1
