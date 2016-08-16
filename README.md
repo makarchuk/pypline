@@ -10,3 +10,9 @@ you can see example in `config.py`.
 Library is not production-ready yet, but i plan to make it usable and stable in not-so-distant future.
 
 If you have any questions, ideas or advices about my poor designing - please create an issue.
+
+# Further plans
+- [ ] Codecs system, since most of inputs actually get string and need to decodde it to object somehow
+- [ ] Implementation of inputs/filters/outputs
+- [ ] Queue adapters for `multiprocessing.Queue` and `redis`
+- [ ] Contexts for inputs and outputs to provide gracefull shutdown
