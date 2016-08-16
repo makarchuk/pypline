@@ -3,4 +3,7 @@ class Filter():
         pass
 
     def filter(self, event):
+        '''
+        Gets event. Changes it and returns
+        '''
         pass
