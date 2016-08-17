@@ -1,4 +1,5 @@
 from multiprocessing import Queue, Process
+from internal_queue import InternalQueue
 import multiprocessing
 import logging
 import sys
@@ -96,8 +97,8 @@ class Pypline():
         '''
         Init queues from inputs to filters and from filters to outputs
         '''
-        self._input_to_filters_queue = Queue(maxsize=1000)
-        self._filters_to_output_queue = Queue(maxsize=1000)
+        self._input_to_filters_queue = InternalQueue(maxsize=1000)
+        self._filters_to_output_queue = InternalQueue(maxsize=1000)
 
         for input in self.inputs:
             input.set_queue(self._input_to_filters_queue)
@@ -143,11 +144,8 @@ class Pypline():
                             self._input_to_filters_queue.empty()):
                     break
                     logging.info("FILTERS EXITED")
-                try:
-                    event = self._input_to_filters_queue.get(False)
-                except:
-                    pass
-                else:
+                event = self._input_to_filters_queue.safe_get()
+                if event:
                     self.filtering_function(event)
 
         self.filter_processes = []
@@ -178,22 +176,12 @@ class Pypline():
             if (self.exiting_event.is_set() and
                     self._filters_to_output_queue.empty()):
                 break
-            try:
-                event = self._filters_to_output_queue.get(False)
-            except:
-                #logging.info("EXCEPTION IN OUTPUT MANAGER! HOLY SHIT!")
-                pass
-            else:
-                for condition, output in self.outputs:
-                    if condition(event):
-                        while 1:
-                            try:
-                                output.push(event)
-                            except:
-                                pass
-                                #logging.info("Can't push event to output")
-                            else:
-                                break
+            event = self._filters_to_output_queue.safe_get()
+            if not event:
+                continue
+            for condition, output in self.outputs:
+                if condition(event):
+                    output.push(event)
 
     def _always_true(self, event):
         '''

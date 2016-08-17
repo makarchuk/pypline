@@ -1,20 +1,14 @@
-from multiprocessing import Queue
+from internal_queue import InternalQueue
 
 class Output(object):
     def __init__(self):
-        self.queue = Queue(1000)
+        self.queue = InternalQueue(1000)
 
     def push(self, event):
         '''
         Called by output manager to push event to outputs personal queue
         '''
-        while 1:
-            try:
-                self.queue.put(event, False)
-            except:
-                logging.warn("Can't push to ouptut queue. It's probably full")
-            else:
-                break
+        self.queue.put(event)
 
     def finalize(self):
         '''
@@ -40,11 +34,8 @@ class Output(object):
         while 1:
             if (self.exit_event.is_set() and self.queue.empty()):
                 break                
-            try:
-                event = self.queue.get(False)
-            except Exception, e:
-                pass
-            else:
+            event = self.queue.safe_get()
+            if event:
                 self.output(event)
         self.finalize()
 

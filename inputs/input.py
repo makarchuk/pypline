@@ -31,16 +31,10 @@ class Input(object):
         '''
         while 1:
             if self.exit_event.is_set():
-                logging("EXITING!!!")
                 break
-            else:
-                pass
             event = self.generate()
             if event:
-                try:
-                    self.queue.put(event, False)
-                except:
-                    pass
+                self.queue.put(event)
         self.finalize()
     
     def generate(self):
